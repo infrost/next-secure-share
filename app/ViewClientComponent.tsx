@@ -9,10 +9,13 @@ interface Props {
   message?: string;
   requires2FA?: boolean;
   isFinal?: boolean;
+  burnAfterRead?: boolean;
 }
 
-export default function ViewClientComponent({ id, initialPassword, message, requires2FA, isFinal }: Props) {
+export default function ViewClientComponent({ id, initialPassword, message, requires2FA, isFinal, burnAfterRead }: Props) {
   const [password] = useState(initialPassword);
+  // 它只应在用户明确执行销毁操作后才变为 true。
+  // 对于阅后即焚链接，它永远不会变为 true，因为没有销毁按钮。
   const [isDestroyed, setIsDestroyed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -83,6 +86,9 @@ export default function ViewClientComponent({ id, initialPassword, message, requ
                 <button onClick={handleCopyAndDestroy} className="w-full px-4 py-2 font-bold text-white bg-red-600 rounded-md hover:bg-red-700">
                   复制并销毁
                 </button>
+              )}
+              {burnAfterRead && (
+                <p className="text-sm text-gray-500">此链接被设置为阅后即焚，已被销毁。</p>
               )}
             </div>
           )}

@@ -9,6 +9,7 @@ export default function SendPage() {
   const [generatedUrl, setGeneratedUrl] = useState('');
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [error, setError] = useState('');
+  const [burnAfterRead, setBurnAfterRead] = useState(false);
     
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -25,6 +26,7 @@ export default function SendPage() {
       expiry: formData.get('expiry'),
       message: formData.get('message'),
       customPassword: formData.get('customPassword'),
+      burnAfterRead: burnAfterRead,
     };
 
     try {
@@ -82,6 +84,12 @@ export default function SendPage() {
             <div>
               <label className="block text-sm font-medium">自定义密码 (可缺省)</label>
               <input name="customPassword" type="text" className="w-full px-3 py-2 border rounded-md" />
+            </div>
+            <div>
+              <label className="flex items-center">
+                <input type="checkbox" checked={burnAfterRead} onChange={() => setBurnAfterRead(!burnAfterRead)} className="mr-2" />
+                强制阅后即焚
+              </label>
             </div>
             <button type="submit" disabled={isLoading} className="w-full px-4 py-2 font-bold text-white bg-blue-600 rounded-md disabled:bg-blue-300">
               {isLoading ? '生成中...' : '生成密码链接'}
