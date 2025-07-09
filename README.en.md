@@ -4,7 +4,7 @@
 
 A secure communication platform that integrates **one-time secret sharing** and **simple end-to-end encrypted chat**. Using "burn-after-reading" links and in-browser encryption, it ensures your sensitive information is destroyed immediately after being delivered or remains encrypted throughout a private session.
 
-[![Deployment Guide](https://img.shields.io/badge/Deployment%20Guide-Click%20to%20Start-5c6bc0?style=for-the-badge)](#quick-start-one-click-deploy-to-vercel)
+[![Try it now](https://img.shields.io/badge/demo%20try%20to%20start-5c6bc0?style=for-the-badge)](https://nextsecureshare.vercel.app)[![Deployment Guide](https://img.shields.io/badge/Deployment%20Guide-Click%20to%20Start-5c6bc0?style=for-the-badge)](#quick-start-one-click-deploy-to-vercel)
 
 [![cn](https://img.shields.io/badge/lang-cn-blue.svg)](https://github.com/infrost/next-secure-share/blob/main/README.md)
 
