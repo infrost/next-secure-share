@@ -203,9 +203,187 @@ RATE_LIMIT_LOG_TTL=604800 # Log retention for 7 days (seconds)
     *   One-time link creation page: `http://localhost:3000/send`
     *   Chat room creation page: `http://localhost:3000/chat`
 
+## API
+
+This service provides a secure API endpoint to programmatically create and destroy sensitive information links. All API requests require a valid `adminPassword`.
+
+### Base URL
+
+```
+https://your-app-domain.com
+```
+*(Replace `https://your-app-domain.com` with your actual production URL. For local testing, use `http://localhost:3000`)*
+
+---
+
+### 1. Create a Secure Link
+
+This endpoint allows you to generate a new secure link. It can either generate a random password for you or use a custom one you provide.
+
+*   **Endpoint**: `/api/generate`
+*   **Method**: `POST`
+*   **Content-Type**: `application/json`
+
+#### Request Body Parameters
+
+| Parameter | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `adminPassword` | string | **Yes** | The secret administrator password to authorize the request. |
+| `customPassword`| string | No | A custom password for the secret. If omitted, a strong 16-character password will be generated. |
+| `message` | string | No | An optional message to display to the user when they view the secret. |
+| `expiry` | string | No | The link's lifetime in hours. Defaults to `72` (3 days). |
+| `burnAfterRead` | boolean | No | If `true`, the link will be destroyed immediately after the first view. Defaults to `false`. |
+| `enable2FA` | boolean | No | If `true`, requires email verification to view the secret. Defaults to `false`. |
+| `email` | string | Yes (if `enable2FA` is `true`) | The recipient's email address for two-factor authentication. |
+
+#### Example 1: `curl` - Generate a link with a system-generated password
+
+This example creates a simple, "burn after read" link with a message. The API will generate a password and return it in the response.
+
+```bash
+curl --location --request POST 'https://your-app-domain.com/api/generate' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "adminPassword": "YOUR_ADMIN_PASSWORD",
+    "message": "This is a temporary access token for the staging server.",
+    "burnAfterRead": true,
+    "expiry": "1"
+}'
+```
+
+**Expected Success Response (200 OK):**
+```json
+{
+    "url": "https://your-app-domain.com/?v=aBcDe",
+    "password": "gE7pL9qR2hK4mN1w" 
+}
+```
+
+#### Example 2: Python Script - Create a link with a custom password and 2FA
+
+This script demonstrates creating a more complex link that uses a predefined password and requires the recipient to verify their email before viewing it.
+
+```python
+import requests
+import json
+
+# --- Configuration ---
+API_URL = "https://your-app-domain.com/api/generate"
+ADMIN_PASSWORD = "YOUR_ADMIN_PASSWORD"
+
+# --- Request Data ---
+payload = {
+    "adminPassword": ADMIN_PASSWORD,
+    "customPassword": "SuperSecretPassword_2025!",
+    "message": "Project Phoenix - Production Database Credentials.",
+    "enable2FA": True,
+    "email": "dev-ops-team@example.com"
+}
+
+# --- Make the API Call ---
+try:
+    response = requests.post(API_URL, json=payload, timeout=10)
+    response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+    
+    result = response.json()
+    
+    print("✅ Link created successfully!")
+    print(f"   URL: {result.get('url')}")
+    # 'password' field is not returned because we provided a custom one.
+    
+except requests.exceptions.HTTPError as e:
+    print(f"❌ HTTP Error: {e.response.status_code}")
+    print(f"   Response: {e.response.text}")
+except requests.exceptions.RequestException as e:
+    print(f"❌ Request Failed: {e}")
+
+```
+
+---
+
+### 2. Destroy a Secure Link (Optional API)
+
+If you have implemented the optional `/api/destroy` endpoint, this allows for the programmatic destruction of a link.
+
+*   **Endpoint**: `/api/destroy`
+*   **Method**: `POST`
+*   **Content-Type**: `application/json`
+
+#### Request Body Parameters
+
+| Parameter | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `adminPassword` | string | **Yes** | The secret administrator password to authorize the request. |
+| `id` | string | **Yes** | The 5-character unique ID of the link to be destroyed (the value of the `v` parameter in the URL). |
+
+#### Example: `curl` - Destroy a specific link
+
+This example shows how to destroy the link with the ID `aBcDe`.
+
+```bash
+curl --location --request POST 'https://your-app-domain.com/api/destroy' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "adminPassword": "YOUR_ADMIN_PASSWORD",
+    "id": "aBcDe"
+}'
+```
+
+**Expected Success Response (200 OK):**
+```json
+{
+    "message": "Record destroyed."
+}
+```
+
+#### Example: Python Script - Clean up a link after use
+
+This script demonstrates a common automated workflow: create a link, use it, and then immediately destroy it.
+
+```python
+import requests
+
+# (Assuming the create_secure_link function from the previous example exists)
+
+def destroy_secure_link(link_id: str):
+    """Destroys a secure link via the API."""
+    API_URL = "https://your-app-domain.com/api/destroy"
+    payload = {
+        "adminPassword": ADMIN_PASSWORD,
+        "id": link_id
+    }
+    try:
+        response = requests.post(API_URL, json=payload, timeout=10)
+        response.raise_for_status()
+        print(f"✅ Link with ID '{link_id}' successfully destroyed.")
+        return True
+    except requests.exceptions.HTTPError as e:
+        print(f"❌ Failed to destroy link '{link_id}': {e.response.text}")
+        return False
+
+# --- Workflow Example ---
+if __name__ == "__main__":
+    # 1. Create a link
+    # creation_result = create_secure_link(message="For immediate use and destruction.")
+    # For demonstration, let's assume we created a link and got its ID
+    creation_result = {'url': 'https://your-app-domain.com/?v=xYz12'}
+    
+    if creation_result:
+        link_url = creation_result.get('url')
+        link_id = link_url.split('v=')[-1]
+        
+        print(f"Link created with ID: {link_id}")
+        
+        # 2. Simulate using the link (e.g., in a CI/CD job)
+        print("...Simulating work with the secret...")
+        
+        # 3. Destroy the link
+        destroy_secure_link(link_id)
+```
+
 ## Tech Stack
 
-*   **Framework**: Next.js 14+ (App Router)
+*   **Framework**: Next.js 14+ (App Router / Server Action)
 *   **UI**: Tailwind CSS
 *   **Database**: Redis (Vercel KV via Upstash)
 *   **Encryption**: Node.js `crypto` (AES-256), Web Crypto API

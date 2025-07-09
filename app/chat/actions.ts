@@ -7,6 +7,9 @@ import { encrypt } from '@/lib/crypto'; // 复用服务端的加密库来加密�
 import { writeLog } from '@/lib/rateLimit';
 import type { ChatData, EncryptedMessage } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
+//【新增】导入共享的链接生成逻辑和 headers
+import { generateLinkLogic } from '@/lib/generate-logic';
+import { headers } from 'next/headers';
 
 const CHAT_EXPIRY = 3 * 24 * 3600; // 聊天记录默认保留3天
 
@@ -123,5 +126,46 @@ export async function destroyChat(chatId: string): Promise<{ success: boolean; e
     } catch (e) {
         console.error('Destroy chat error:', e);
         return { success: false, error: 'Failed to destroy chat.' };
+    }
+}
+
+// 【新增的 Server Action】
+// 专门用于在创建聊天后，为参与者B生成一个阅后即焚的凭证链接
+export async function generateBurnLinkForChat(
+    adminPassword: string,
+    messageForBurnLink: string,
+    linkForParticipantB: string
+): Promise<{ url?: string; error?: string }> {
+    try {
+        // 在服务端安全地获取 IP
+        const ip = headers().get('x-forwarded-for') ?? '127.0.0.1';
+
+        // 调用我们已经创建的共享逻辑函数
+        const result = await generateLinkLogic({
+            adminPassword,
+            // 核心机密是 B 的链接，作为自定义密码传递
+            customPassword: linkForParticipantB,
+            // 附加的提示信息
+            message: messageForBurnLink,
+            // 强制阅后即焚
+            burnAfterRead: true,
+            // 此场景下不启用 2FA
+            enable2FA: false,
+            email: null,
+            expiry: null, // 使用默认过期时间
+            ip: ip,
+        });
+
+        if (result.error) {
+            return { error: result.error };
+        }
+
+        // generateLinkLogic 返回的 data 包含 url
+        return { url: result.data?.url };
+
+    } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
+        console.error('Failed to generate burn link for chat:', errorMessage);
+        return { error: `服务器内部错误: ${errorMessage}` };
     }
 }

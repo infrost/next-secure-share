@@ -201,9 +201,189 @@ RATE_LIMIT_LOG_TTL=604800 # 日志保留7天 (秒)
     *   一次性链接创建页: `http://localhost:3000/send`
     *   聊天室创建页: `http://localhost:3000/chat`
 
+## API
+
+本服务提供了一套安全的 API 端点，用于通过编程方式创建和销毁敏感信息链接。所有 API 请求都需要提供有效的 `adminPassword` 进行授权。
+
+### API 根地址
+
+```
+https://your-app-domain.com
+```
+*(请将 `https://your-app-domain.com` 替换为您的实际应用域名。本地测试时，请使用 `http://localhost:3000`)*
+
+---
+
+### 1. 创建安全链接
+
+此端点允许您生成一个新的安全链接。您可以让系统为您生成一个随机密码，也可以使用您自己提供的自定义密码。
+
+*   **端点地址**: `/api/generate`
+*   **请求方法**: `POST`
+*   **内容类型**: `application/json`
+
+#### 请求体参数
+
+| 参数 | 类型 | 是否必需 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `adminPassword` | string | **是** | 用于授权请求的管理员密码。 |
+| `customPassword`| string | 否 | 为机密信息设置一个自定义密码。如果留空，系统将为您生成一个16位的强随机密码。 |
+| `message` | string | 否 | 查看机密信息时向用户显示的可选消息。 |
+| `expiry` | string | 否 | 链接的生命周期（单位：小时）。默认为 `72`（3天）。 |
+| `burnAfterRead` | boolean | 否 | 如果为 `true`，链接在首次被查看后将立即销毁。默认为 `false`。 |
+| `enable2FA` | boolean | 否 | 如果为 `true`，查看机密信息前需要进行邮件验证。默认为 `false`。 |
+| `email` | string | 是 (当 `enable2FA` 为 `true` 时) | 用于双因素认证的接收者邮箱地址。 |
+
+#### 示例 1: `curl` - 生成一个由系统提供密码的链接
+
+本示例将创建一个简单的“阅后即焚”链接，并附带一条消息。API 将会自动生成密码并在响应中返回。
+
+```bash
+curl --location --request POST 'https://your-app-domain.com/api/generate' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "adminPassword": "您的管理员密码",
+    "message": "这是用于测试服务器的临时访问令牌。",
+    "burnAfterRead": true,
+    "expiry": "1"
+}'
+```
+
+**预期成功响应 (200 OK):**
+```json
+{
+    "url": "https://your-app-domain.com/?v=aBcDe",
+    "password": "gE7pL9qR2hK4mN1w" 
+}
+```
+
+#### 示例 2: Python 脚本 - 创建一个带自定义密码和2FA的链接
+
+此脚本演示了如何创建一个更复杂的链接，它使用预设的密码，并要求接收者在查看前通过邮件进行身份验证。
+
+```python
+import requests
+import json
+
+# --- 配置 ---
+API_URL = "https://your-app-domain.com/api/generate"
+ADMIN_PASSWORD = "您的管理员密码"
+
+# --- 请求数据 ---
+payload = {
+    "adminPassword": ADMIN_PASSWORD,
+    "customPassword": "SuperSecretPassword_2025!",
+    "message": "凤凰项目 - 生产数据库凭证。",
+    "enable2FA": True,
+    "email": "dev-ops-team@example.com"
+}
+
+# --- 发起 API 调用 ---
+try:
+    response = requests.post(API_URL, json=payload, timeout=10)
+    response.raise_for_status()  # 如果状态码不是 2xx，则会抛出异常
+    
+    result = response.json()
+    
+    print("✅ 链接创建成功！")
+    print(f"   URL: {result.get('url')}")
+    # 因为我们提供了自定义密码，所以响应中不会包含 'password' 字段。
+    
+except requests.exceptions.HTTPError as e:
+    print(f"❌ HTTP 错误: {e.response.status_code}")
+    print(f"   响应内容: {e.response.text}")
+except requests.exceptions.RequestException as e:
+    print(f"❌ 请求失败: {e}")
+
+```
+
+---
+
+### 2. 销毁安全链接 (可选 API)
+
+如果您已经实现了可选的 `/api/destroy` 端点，则可以使用此功能来通过编程方式销毁链接。
+
+*   **端点地址**: `/api/destroy`
+*   **请求方法**: `POST`
+*   **内容类型**: `application/json`
+
+#### 请求体参数
+
+| 参数 | 类型 | 是否必需 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `adminPassword` | string | **是** | 用于授权请求的管理员密码。 |
+| `id` | string | **是** | 需要销毁的链接的5位唯一ID (即URL中 `v` 参数的值)。 |
+
+#### 示例: `curl` - 销毁一个指定的链接
+
+本示例展示了如何销毁 ID 为 `aBcDe` 的链接。
+
+```bash
+curl --location --request POST 'https://your-app-domain.com/api/destroy' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "adminPassword": "您的管理员密码",
+    "id": "aBcDe"
+}'
+```
+
+**预期成功响应 (200 OK):**
+```json
+{
+    "message": "Record destroyed."
+}
+```
+
+#### 示例: Python 脚本 - 使用后清理链接
+
+此脚本演示了一个常见的自动化工作流：创建一个链接，使用它，然后立即将其销毁。
+
+```python
+import requests
+
+# (假设前面已有 create_secure_link 函数)
+
+def destroy_secure_link(link_id: str):
+    """通过 API 销毁一个安全链接。"""
+    API_URL = "https://your-app-domain.com/api/destroy"
+    ADMIN_PASSWORD = "您的管理员密码"
+    
+    payload = {
+        "adminPassword": ADMIN_PASSWORD,
+        "id": link_id
+    }
+    try:
+        response = requests.post(API_URL, json=payload, timeout=10)
+        response.raise_for_status()
+        print(f"✅ ID 为 '{link_id}' 的链接已成功销毁。")
+        return True
+    except requests.exceptions.HTTPError as e:
+        print(f"❌ 销毁链接 '{link_id}' 失败: {e.response.text}")
+        return False
+
+# --- 工作流演示 ---
+if __name__ == "__main__":
+    # 1. 创建一个链接
+    # creation_result = create_secure_link(message="此链接仅供立即使用和销毁。")
+    # 为方便演示，我们假设已成功创建链接并获得了其ID
+    creation_result = {'url': 'https://your-app-domain.com/?v=xYz12'}
+    
+    if creation_result:
+        link_url = creation_result.get('url')
+        link_id = link_url.split('v=')[-1]
+        
+        print(f"链接已创建，ID: {link_id}")
+        
+        # 2. 模拟使用这个机密信息 (例如，在CI/CD任务中)
+        print("...模拟使用机密信息中...")
+        
+        # 3. 销毁链接
+        destroy_secure_link(link_id)
+```
+
 ## 技术栈
 
-*   **框架**: Next.js 14+ (App Router)
+*   **框架**: Next.js 14+ (App Router/Server Action)
 *   **UI**: Tailwind CSS
 *   **数据库**: Redis (Vercel KV via Upstash)
 *   **加密**: Node.js `crypto` (AES-256), Web Crypto API

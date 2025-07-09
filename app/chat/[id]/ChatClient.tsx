@@ -28,6 +28,8 @@ export default function ChatClient({ chatId, myIdentity, requiredAccessPassword 
   const [isDestroyed, setIsDestroyed] = useState(false);
   const [isDestroying, setIsDestroying] = useState(false);
 
+  // message fix
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 1. 从 URL hash 获取加密密钥
@@ -116,19 +118,28 @@ export default function ChatClient({ chatId, myIdentity, requiredAccessPassword 
 
     // 4. 滚动到底部
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, decryptedContent]);
+      const container = scrollContainerRef.current;
+      if (!container) return;
 
-  const handleAuth = () => {
-    if (passwordInput === requiredAccessPassword) {
-      setIsAuthenticated(true);
-      setAuthError('');
-    } else {
-      setAuthError('密码错误');
-    }
-  };
+      // 判断用户是否接近底部 (阈值为 100px)
+      // 只有当用户本身就在底部时，新消息才触发滚动
+      const isScrolledToBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 100;
 
-    // 【修改点 3】: 更新 handleSendMessage 函数
+      if (isScrolledToBottom) {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [messages, decryptedContent]); // 依赖项保持不变，因为解密也可能改变内容高度
+
+    const handleAuth = () => {
+      if (passwordInput === requiredAccessPassword) {
+        setIsAuthenticated(true);
+        setAuthError('');
+      } else {
+        setAuthError('密码错误');
+      }
+    };
+
+    //  更新 handleSendMessage 函数
     const handleSendMessage = async () => {
         if (!newMessage.trim() || !accessKey || isSending) return;
 
@@ -160,7 +171,7 @@ export default function ChatClient({ chatId, myIdentity, requiredAccessPassword 
     };
 
 
-    // 【修改点 4】: 更新 handleDestroyChat 函数
+    // 更新 handleDestroyChat 函数
     const handleDestroyChat = async () => {
         if (confirm('Are you sure you want to permanently destroy this entire chat? This cannot be undone.')) {
         setIsDestroying(true); // <--- 设置为 true
@@ -240,16 +251,23 @@ export default function ChatClient({ chatId, myIdentity, requiredAccessPassword 
             </button>
             </div>
         </div>
-        <div className="flex-1 p-4 overflow-y-auto">
+        {/* 【修改点 3】: 将 ref 应用到滚动容器上 */}
+        <div ref={scrollContainerRef} className="flex-1 p-4 overflow-y-auto">
             {messages.map((msg) => (
-                <div key={msg.timestamp} className={`flex ${msg.sender === myIdentity ? 'justify-end' : 'justify-start'} mb-4`}>
+                <div key={msg.timestamp} className={`flex items-end ${msg.sender === myIdentity ? 'justify-end' : 'justify-start'} mb-2`}>
+                    {msg.sender !== myIdentity && (
+                        <div className="text-xs text-gray-400 mr-2 mb-1">
+                            {formatTimestamp(msg.timestamp)}
+                        </div>
+                    )}
                     <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${msg.sender === myIdentity ? 'bg-blue-500 text-white' : 'bg-gray-200 text-black'}`}>
                         {decryptedContent[msg.timestamp] || 'Decrypting...'}
                     </div>
-                    {/* 【修改点】: 添加时间戳显示 */}
-                    <div className="text-xs text-gray-500 mt-1">
-                        {formatTimestamp(msg.timestamp)}
-                    </div>
+                    {msg.sender === myIdentity && (
+                         <div className="text-xs text-gray-400 ml-2 mb-1">
+                            {formatTimestamp(msg.timestamp)}
+                        </div>
+                    )}
                 </div>
             ))}
             <div ref={messagesEndRef} />
