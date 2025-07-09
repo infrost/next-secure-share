@@ -2,7 +2,7 @@
 
 # Next Secure Share
 
-如何安全地通过互联网传输密码？同时不让对方有操作成本？这是一个集成了**一次性私密信息分享**与**简易端到端加密聊天**的安全通信平台。通过“阅后即焚”链接和浏览器内加密技术，确保您的敏感信息在送达后即刻销毁，或在私密会话中全程加密（带访问审计功能）。**这是一个可以直接免费部署在vercel上的next.js项目。**
+如何安全地通过互联网传输密码？同时不让对方有操作成本？这是一个集成了**一次性私密信息分享**与**简易端到端加密聊天**的安全通信平台。通过“阅后即焚”链接和浏览器内加密技术，确保您的敏感信息在送达后即刻销毁，或在私密会话中全程加密（带2FA二次验证与访问审计功能）。**这是一个可以直接免费部署在vercel上的next.js项目。**
 
 [![部署指南](https://img.shields.io/badge/部署指南-点击开始-5c6bc0?style=for-the-badge)](#快速开始一键部署到-vercel)[![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/infrost/next-secure-share/blob/master/README.en.md)
 
